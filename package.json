@@ -1,6 +1,6 @@
 {
-	"name": "@smithery/mcp-fetch",
-	"version": "0.8.12",
+	"name": "@jmuzhen/mcp-fetch2",
+	"version": "10.8.13-beta.1",
 	"type": "module",
 	"description": "A Model Context Protocol server that provides web content fetching capabilities",
 	"main": "dist/index.js",
@@ -21,8 +21,10 @@
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.0.0",
 		"@mozilla/readability": "^0.5.0",
+		"fetch-to-curl": "^0.6.0",
 		"jsdom": "^24.0.0",
 		"node-fetch": "^3.3.2",
+		"pdf-parse": "^1.1.1",
 		"robots-parser": "^3.0.1",
 		"turndown": "^7.1.2",
 		"zod": "^3.22.4",
@@ -31,6 +33,7 @@
 	"devDependencies": {
 		"@types/jsdom": "^21.1.6",
 		"@types/node": "^20.10.5",
+		"@types/pdf-parse": "^1.1.5",
 		"@types/turndown": "^5.0.4",
 		"typescript": "^5.3.3"
 	},

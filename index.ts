@@ -8,6 +8,7 @@ import fetch from "node-fetch"
 import { JSDOM } from "jsdom"
 import { Readability } from "@mozilla/readability"
 import TurndownService from "turndown"
+import pdfparse from "pdf-parse"
 import { exec } from "node:child_process"
 import { promisify } from "node:util"
 
@@ -28,9 +29,7 @@ interface ExtractedContent {
 }
 
 const DEFAULT_USER_AGENT_AUTONOMOUS =
-	"ModelContextProtocol/1.0 (Autonomous; +https://github.com/modelcontextprotocol/servers)"
-const DEFAULT_USER_AGENT_MANUAL =
-	"ModelContextProtocol/1.0 (User-Specified; +https://github.com/modelcontextprotocol/servers)"
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
 
 const FetchArgsSchema = z.object({
 	url: z.string().url(),
@@ -116,6 +115,7 @@ async function fetchUrl(
 	const text = await response.text()
 	const isHtml =
 		text.toLowerCase().includes("<html") || contentType.includes("text/html")
+  const isPdf = contentType.includes("application/pdf")
 
 	if (isHtml && !forceRaw) {
 		const result = extractContentFromHtml(text, url)
@@ -127,7 +127,7 @@ async function fetchUrl(
 		}
 
 		const { markdown, images } = result
-		const imageUrls = images.map((img) => img.src)
+		const imageUrls = images.map((img) => img.src).slice(0, 10) // Limit to first 10 images
 
 		return {
 			content: markdown,
@@ -135,6 +135,16 @@ async function fetchUrl(
 			imageUrls,
 		}
 	}
+
+  if (isPdf && !forceRaw) {
+    let bytes = Buffer.from(await response.arrayBuffer())
+    const text = (await pdfparse(bytes))?.text || ""
+    return {
+      content: text,
+      prefix: "",
+      imageUrls: [],
+    }
+  }
 
 	return {
 		content: text,
@@ -145,8 +155,8 @@ async function fetchUrl(
 // Server setup
 const server = new Server(
 	{
-		name: "mcp-fetch",
-		version: "1.0.0",
+		name: "mcp-fetch2",
+		version: "10.0.0",
 	},
 	{
 		capabilities: {
@@ -215,7 +225,7 @@ server.setRequestHandler(
 			let imagesSection = ""
 			if (imageUrls && imageUrls.length > 0) {
 				imagesSection =
-					"\n\nImages found in article:\n" +
+					"\n\nImages found in page:\n" +
 					imageUrls.map((url) => `- ${url}`).join("\n")
 			}
 
@@ -241,13 +251,47 @@ server.setRequestHandler(
 	},
 )
 
-// Start server
-async function runServer() {
+// Parse CLI arguments
+function parseArgs(): { mode: 'stdio' | 'http' } {
+	const args = process.argv.slice(2)
+	let mode: 'stdio' | 'http' = 'stdio' // default to stdio
+	
+	for (let i = 0; i < args.length; i++) {
+		if (args[i] === '--mode' && i + 1 < args.length) {
+			const modeValue = args[i + 1]
+			if (modeValue === 'stdio' || modeValue === 'http') {
+				mode = modeValue
+			} else {
+				process.stderr.write(`Invalid mode: ${modeValue}. Valid options are: stdio, http\n`)
+				process.exit(1)
+			}
+		}
+	}
+	
+	return { mode }
+}
+
+async function runServerStdio() {
 	const transport = new StdioServerTransport()
 	await server.connect(transport)
 }
 
-runServer().catch((error) => {
+async function runServerHTTP() {
+	// TODO: Implement HTTP server functionality
+	throw new Error('HTTP server mode not implemented yet')
+}
+
+async function main() {
+	const { mode } = parseArgs()
+	
+	if (mode === 'stdio') {
+		await runServerStdio()
+	} else if (mode === 'http') {
+		await runServerHTTP()
+	}
+}
+
+main().catch((error) => {
 	process.stderr.write(`Fatal error running server: ${error}\n`)
 	process.exit(1)
 })
